@@ -121,7 +121,7 @@ function findClosestTimeToPosition(
 
   // Find the starting index.
   for (index = 0; index < track.length; index++) {
-    if (track[index].time > otherTime) {
+    if (track[index].time >= otherTime) {
       break;
     }
   }
@@ -134,8 +134,8 @@ function findClosestTimeToPosition(
   // Now scrub in the right direction.
   while (index > 0 && index < track.length) {
     const distance = getDistanceFromLatLonInKm(
-      otherPoint[0],
-      otherPoint[1],
+      otherPoint.lat,
+      otherPoint.lon,
       track[index].lat,
       track[index].lon,
     );

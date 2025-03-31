@@ -57,7 +57,7 @@ function updateMarkers() {
       }
     }
   }
-  drawGraph(currentTime);
+  drawGraphTime(currentTime);
 }
 
 function updateTracks() {
@@ -110,7 +110,7 @@ function drawGraph(currentTime) {
         stroke: (d) => d.trackDate,
       }),
       Plot.ruleX([currentTime], { stroke: "red" }), // Vertical bar
-      Plot.text([{ x: currentTime, y: 0, label: "XXX" }], {
+      Plot.text([{ x: currentTime, y: 0, label: (d) => d.diff }], {
         x: "x",
         y: "y",
         text: "label",
@@ -132,7 +132,7 @@ function drawGraph(currentTime) {
   graphContainer.appendChild(chart);
 }
 
-function drawGraphTime() {
+function drawGraphTime(currentTime) {
   if (tracks.length < 2) {
     return;
   }
@@ -158,15 +158,17 @@ function drawGraphTime() {
       });
     });
   }
+
+  console.log(timeDifferences);
   const chart = Plot.plot({
     marks: [
-      Plot.line(distanceDifferences, {
+      Plot.line(timeDifferences, {
         x: "time",
         y: "diff",
         stroke: (d) => d.trackDate,
       }),
       Plot.ruleX([currentTime], { stroke: "red" }), // Vertical bar
-      Plot.text([{ x: currentTime, y: 0, label: "XXX" }], {
+      Plot.text([{ x: currentTime, y: 0, label: diff }], {
         x: "x",
         y: "y",
         text: "label",
@@ -177,7 +179,7 @@ function drawGraphTime() {
       label: "Time (s)",
     },
     y: {
-      label: "Distance Difference (m)",
+      label: "Time Difference (m)",
     },
   });
 
@@ -230,6 +232,7 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 
 // If there is a
 const url = new URL(window.location);
+console.log(url);
 if (url.hash == "#test") {
   console.log("Test mode");
   fetchGPXTrack("track1.gpx");

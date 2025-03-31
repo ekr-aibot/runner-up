@@ -231,7 +231,12 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 }).addTo(map);
 
-// If there is a
+// Set up the deploy date.
+fetch("deploy-date.txt")
+  .then((response) => response.text())
+  .then((v) => (document.querySelector("#deploy-date").textContent = v));
+
+// Check to see if we are in test mode.
 const url = new URL(window.location);
 console.log(url);
 if (url.hash == "#test") {

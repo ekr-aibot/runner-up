@@ -34,7 +34,13 @@
       </div>
     </template>
     
-    </div>
+  </div>
+  <label for="compare-by-menu">Compare by:</label>
+    <select name="compare-value" id="compare-by-menu">
+        <option value="time">Time</option>
+        <option value="distance">Distance</option>
+    </select>
+  
     <div id="graph"></div>
     <div id="deploy-label">
       Last deployed: <span id="deploy-date"></span>.

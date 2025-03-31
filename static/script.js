@@ -64,12 +64,7 @@ function updateMarkers() {
       }
     }
   }
-  drawDifferenceGraph(
-    currentTime,
-    "normalizedDistance",
-    "time",
-    "Time Difference (s)",
-  );
+  drawGraphs(currentTime);
 }
 
 function updateTracks() {
@@ -99,6 +94,26 @@ function removeGraphs() {
   const graphContainer = document.getElementById("graph");
   while (graphContainer.children.length) {
     graphContainer.removeChild(graphContainer.children[0]);
+  }
+}
+
+function drawGraphs(currentTime) {
+  let type = document.querySelector("#compare-by-menu").value;
+
+  if (type === "time") {
+    drawDifferenceGraph(
+      currentTime,
+      "normalizedDistance",
+      "time",
+      "Time Difference (s)",
+    );
+  } else if (type === "distance") {
+    drawDifferenceGraph(
+      currentTime,
+      "time",
+      "normalizedDistance",
+      "Distance Difference (m)",
+    );
   }
 }
 
@@ -161,6 +176,14 @@ function drawDifferenceGraph(currentTime, x_name, y_name, y_label) {
   graphContainer.appendChild(chart);
 }
 
+function addGraphTypeListener() {
+  document
+    .querySelector("#compare-by-menu")
+    .addEventListener("change", (_e) => {
+      updateMarkers();
+    });
+}
+
 function addFileListener(name) {
   const fileInput = document.getElementById(name);
   fileInput.style.opacity = 0;
@@ -192,29 +215,35 @@ function fetchGPXTrack(url) {
     .catch((error) => console.error("Error loading GPX:", error));
 }
 
-// Initialize Leaflet map
-const map = L.map("map").setView([0, 0], 2); // Set initial view to a very zoomed out view.
+let map = undefined;
+let markerGroup = undefined;
 
-// Add a tile layer (OpenStreetMap)
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  attribution:
-    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-}).addTo(map);
+document.addEventListener("DOMContentLoaded", () => {
+  // Initialize Leaflet map
+  map = L.map("map").setView([0, 0], 2); // Set initial view to a very zoomed out view.
 
-let markerGroup = L.featureGroup().addTo(map);
+  // Add a tile layer (OpenStreetMap)
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  }).addTo(map);
 
-// Set up the deploy date.
-fetch("deploy-date.txt")
-  .then((response) => response.text())
-  .then((v) => (document.querySelector("#deploy-date").textContent = v));
+  markerGroup = L.featureGroup().addTo(map);
 
-// Check to see if we are in test mode.
-const url = new URL(window.location);
-console.log(url);
-if (url.hash == "#test") {
-  console.log("Test mode");
-  fetchGPXTrack("track1.gpx");
-  fetchGPXTrack("track2.gpx");
-}
+  // Set up the deploy date.
+  fetch("deploy-date.txt")
+    .then((response) => response.text())
+    .then((v) => (document.querySelector("#deploy-date").textContent = v));
 
-addFileListener("track");
+  // Check to see if we are in test mode.
+  const url = new URL(window.location);
+  console.log(url);
+  if (url.hash == "#test") {
+    console.log("Test mode");
+    fetchGPXTrack("track1.gpx");
+    fetchGPXTrack("track2.gpx");
+  }
+
+  addFileListener("track");
+  addGraphTypeListener();
+});

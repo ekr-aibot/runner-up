@@ -9,7 +9,11 @@
 
 .logo-container img {
     margin-left: auto;
-}    
+}
+
+#map-container {
+    position: relative;
+}
 #legend-container {
     position: absolute;
     top: 10px;

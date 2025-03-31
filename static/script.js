@@ -15,6 +15,13 @@ function createLegend() {
     clone.querySelector("#legend-text").textContent =
       `Date: ${getStartDate(track)}`;
     clone.querySelector("#legend-icon").style.backgroundColor = getColor(i);
+    let trackId = i;
+
+    clone.querySelector(".delete-button").addEventListener("click", (e) => {
+      tracks.splice(trackId, 1);
+      updateTracks();
+    });
+
     legendContainer.appendChild(clone);
   }
 
@@ -66,6 +73,10 @@ function updateMarkers() {
 }
 
 function updateTracks() {
+  // Clean up.
+  markerGroup.clearLayers();
+  removeGraphs();
+
   normalizeTracks(tracks);
 
   for (i in tracks) {
@@ -77,11 +88,18 @@ function updateTracks() {
     const latlngs = track.map((point) => [point.lat, point.lon]);
     const polyline = L.polyline(latlngs, {
       color: getColor(i),
-    }).addTo(map);
+    }).addTo(markerGroup);
     map.fitBounds(polyline.getBounds()); // Zoom to the track
   }
   createLegend();
   initializeSlider();
+}
+
+function removeGraphs() {
+  const graphContainer = document.getElementById("graph");
+  while (graphContainer.children.length) {
+    graphContainer.removeChild(graphContainer.children[0]);
+  }
 }
 
 function drawDifferenceGraph(currentTime, x_name, y_name, y_label) {
@@ -112,6 +130,7 @@ function drawDifferenceGraph(currentTime, x_name, y_name, y_label) {
     });
   }
 
+  removeGraphs();
   const graphContainer = document.getElementById("graph");
 
   const chart = Plot.plot({
@@ -139,9 +158,6 @@ function drawDifferenceGraph(currentTime, x_name, y_name, y_label) {
     },
   });
 
-  while (graphContainer.children.length) {
-    graphContainer.removeChild(graphContainer.children[0]);
-  }
   graphContainer.appendChild(chart);
 }
 
@@ -184,6 +200,8 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution:
     '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 }).addTo(map);
+
+let markerGroup = L.featureGroup().addTo(map);
 
 // Set up the deploy date.
 fetch("deploy-date.txt")

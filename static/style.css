@@ -37,3 +37,40 @@
     position: absolute;
     bottom: 0;
 }
+
+
+.delete-button {
+  /* Reset basic button styles */
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+
+  /* Appearance */
+  color: #666; /* Color of the 'X' */
+  cursor: pointer;
+  font-weight: bold;
+  display: inline-flex; /* Helps with alignment */
+  align-items: center;
+  justify-content: center;
+
+  /* Optional: Size and shape */
+  width: 24px;
+  height: 24px;
+  font-size: 20px; /* Adjust size of the 'X' */
+  line-height: 1; /* Adjust vertical alignment if needed */
+  border-radius: 50%; /* Optional: make it circular */
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.delete-button:hover,
+.delete-button:focus {
+  color: #000; /* Darker 'X' on hover/focus */
+  background-color: #eee; /* Optional: subtle background */
+  outline: none; /* Or style a custom outline */
+}
+
+/* Optional focus ring for accessibility if outline is removed */
+.delete-button:focus-visible {
+   box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.5);
+}

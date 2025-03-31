@@ -105,7 +105,7 @@ function drawGraphs(currentTime) {
       currentTime,
       "normalizedDistance",
       "time",
-      "Time Difference (s)",
+      "Time Behind (s)",
     );
   } else if (type === "distance") {
     drawDifferenceGraph(

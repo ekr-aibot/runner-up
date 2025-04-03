@@ -241,7 +241,7 @@ function drawElevationGraph(currentTime) {
       label: "Distance (km)",
     },
     y: {
-      label: "Elevation (ft)",
+      label: "Elevation (m)",
     },
   });
 

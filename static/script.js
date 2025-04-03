@@ -64,6 +64,11 @@ function updateMarkers() {
       }
     }
   }
+  // Remove unused marks.
+  while (tracks.length < markers.length) {
+    const mark = markers.pop();
+    mark.remove();
+  }
   drawGraphs(currentTime);
 }
 

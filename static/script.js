@@ -120,8 +120,8 @@ function drawGraphs(currentTime) {
       currentTime,
       "time",
       "normalizedDistance",
-      "Distance Behind (m)",
-      (v) => -1 * v,
+      `Distance Behind (${Units().distanceDiffUnits()})`,
+      (v) => Units().distanceDiffValue(-1 * v),
     );
   }
 }
@@ -198,8 +198,8 @@ function drawElevationGraph(currentTime) {
 
   let marks = [
     Plot.line(tracks[0], {
-      x: "normalizedDistance",
-      y: "elevation",
+      x: (d) => Units().distanceValue(d.normalizedDistance),
+      y: (d) => Units().elevationValue(d.elevation),
     }),
   ];
 
@@ -221,7 +221,11 @@ function drawElevationGraph(currentTime) {
       distance,
       "elevation",
     );
-    dots.push({ x: distance, y: elevation, color: getColor(index) });
+    dots.push({
+      x: Units().distanceValue(distance),
+      y: Units().elevationValue(elevation),
+      color: getColor(index),
+    });
   });
 
   marks.push(
@@ -238,10 +242,10 @@ function drawElevationGraph(currentTime) {
     marks: marks,
     x: {
       type: "linear",
-      label: "Distance (km)",
+      label: `Distance (${Units().distanceUnits()})`,
     },
     y: {
-      label: "Elevation (m)",
+      label: `Elevation (${Units().elevationUnits()})`,
     },
   });
 

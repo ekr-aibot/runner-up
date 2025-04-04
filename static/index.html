@@ -42,12 +42,21 @@
     </select>
   
     <div id="graph"></div>
-    <div id="deploy-label">
-      Last deployed: <span id="deploy-date"></span>.
+    <div id="footer">
+      <div id="deploy-label">
+        Last deployed: <span id="deploy-date"></span>
+      </div>
+      <div id="settings">
+        <a href="/settings.html">Settings</a>
+      </div>
     </div>
+    
+    
     <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
     <script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="settings.js"></script>
+    <script src="units.js"></script>
     <script src="utils.js"></script>    
     <script src="gpx.js"></script>
     <script src="script.js"></script>

@@ -33,11 +33,23 @@
     cursor: pointer;
 }
 
-#deploy-label {
+#footer {
     position: absolute;
+    margin-bottom: 10px;
     bottom: 0;
+    display: flex;
+    width: 100%;
 }
 
+#deploy-label {
+    display: flex;
+}
+
+#settings {
+    display: flex;
+    margin-left: auto;
+    margin-right: 20px;
+}
 
 .delete-button {
   /* Reset basic button styles */

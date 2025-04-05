@@ -215,6 +215,10 @@ function getValueAtPosition(track, positionField, targetPosition, valueField) {
   return interpolatedValue;
 }
 
+function getDistanceFromPointInKm(p1, p2) {
+  return getDistanceFromLatLonInKm(p1.lat, p1.lon, p2.lat, p2.lon);
+}
+
 function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
   // Haversine formula (calculates distance between two GPS coordinates)
   const R = 6371; // Radius of the earth in km
@@ -304,4 +308,47 @@ function normalizeTracks(tracks) {
       point.normalizedDistance = point.distance / ratio;
     });
   });
+}
+
+function findMatchingSegments(track1, track2, threshold = 0.03) {
+  let segments = [];
+  let currentSegment = [];
+
+  let t1Index = 0;
+  let t2Index = 0;
+
+  // First set up. Tracks had better start in the same place.
+  let distance = getDistanceFromPointInKm(track1[0], track2[0]);
+  if (distance > threshold) {
+    console.error("Initial points too far apart");
+    return null;
+  }
+
+  while (t1Index < track1.length - 1) {
+    // Find the local point on track2 that is >= the current position
+    // and closest to the current point on track1.
+
+    console.log(t1Index);
+    t1Index++;
+    distance = getDistanceFromPointInKm(track1[t1Index], track2[t2Index]);
+    for (let i = t2Index; i < track2.length; i++) {
+      const d = getDistanceFromPointInKm(track1[t1Index], track2[i]);
+      if (d > distance) {
+        break;
+      }
+      t2Index = i;
+      distance = d;
+    }
+
+    // OK, we now have the closest point on t2. Check to see if it's
+    // in the window.
+    console.log(`T1=${t1Index} T2=${t2Index} distance=${distance}`);
+    if (distance > threshold) {
+      console.log(`Track 1 and track 2 are diverging at t=${t1Index}`);
+      break;
+    }
+  }
+
+  // TODO: find the end of track2.
+  return;
 }

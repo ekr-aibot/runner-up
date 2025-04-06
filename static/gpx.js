@@ -312,7 +312,6 @@ function normalizeTracks(tracks) {
 
 function findMatchingSegments(track1, track2, threshold = 0.03) {
   let segments = [];
-  let currentSegment = [];
   const window = 30;
   let t1Index = 0;
   let t2Index = 0;
@@ -323,9 +322,8 @@ function findMatchingSegments(track1, track2, threshold = 0.03) {
     console.error("Initial points too far apart");
     return null;
   }
-
+  let currentSegment = [0, 0];
   let matching = true;
-
   while (t1Index < track1.length - 1) {
     t1Index++;
 
@@ -357,6 +355,10 @@ function findMatchingSegments(track1, track2, threshold = 0.03) {
           `Track 1 and track 2 diverged at t1=${t1Index} t2=${t2Index}`,
         );
         matching = false;
+        segments.push([
+          [currentSegment[0], t1Index],
+          [currentSegment[1], t2Index],
+        ]);
       }
     } else {
       // We don't have a match.
@@ -371,12 +373,38 @@ function findMatchingSegments(track1, track2, threshold = 0.03) {
             `Track 1 and track 2 converged at t1=${t1Index} t2=${t2Index}`,
           );
           matching = true;
+          currentSegment = [t1Index, i];
           break;
         }
       }
     }
   }
 
-  // TODO: find the end of track2.
+  // There are no more points in track1, but there might be some more points in
+  // track2, so iterate through the rest. If this is still a segment, they
+  // should all be within threshold.
+  if (matching) {
+    while (t2Index < t2Index.length) {
+      const d = getDistanceFromPointInKm(
+        track1[track1.length - 1],
+        track2[t2Index],
+      );
+      if (d > threshold) {
+        console.log(
+          `Track 1 and track 2 diverged at t1=${t1Index} t2=${t2Index}`,
+        );
+        break;
+      }
+      t2Index++;
+    }
+
+    // OK, we now have the last point in t2
+    segments.push([
+      [currentSegment[0], t1Index],
+      [currentSegment[1], t2Index],
+    ]);
+  }
+
+  console.log(segments);
   return;
 }

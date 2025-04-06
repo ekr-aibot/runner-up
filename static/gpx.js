@@ -324,28 +324,58 @@ function findMatchingSegments(track1, track2, threshold = 0.03) {
     return null;
   }
 
+  let matching = true;
+
   while (t1Index < track1.length - 1) {
-    // Find the local point on track2 that is >= the current position
-    // and closest to the current point on track1.
-
-    console.log(t1Index);
     t1Index++;
-    distance = getDistanceFromPointInKm(track1[t1Index], track2[t2Index]);
-    for (let i = t2Index; i < track2.length; i++) {
-      const d = getDistanceFromPointInKm(track1[t1Index], track2[i]);
-      if (d > distance) {
-        break;
-      }
-      t2Index = i;
-      distance = d;
-    }
 
-    // OK, we now have the closest point on t2. Check to see if it's
-    // in the window.
-    console.log(`T1=${t1Index} T2=${t2Index} distance=${distance}`);
-    if (distance > threshold) {
-      console.log(`Track 1 and track 2 are diverging at t=${t1Index}`);
-      break;
+    // console.log(`Matching = ${matching} T1=${t1Index} T2=${t2Index}`);
+    if (matching) {
+      // We are in a matching segment.
+      // Find the local point on track2 that is >= the current position
+      // and closest to the current point on track1.
+      distance = getDistanceFromPointInKm(track1[t1Index], track2[t2Index]);
+      console.log(
+        `T1=${t1Index} T2=${t2Index} distance=${distance} cum1=${track2[t1Index].distance} cum2=${track2[t2Index].distance}`,
+      );
+      for (let i = t2Index; i < track2.length; i++) {
+        const d = getDistanceFromPointInKm(track1[t1Index], track2[i]);
+        if (t1Index == 160) {
+          console.log(
+            `T1=${t1Index} T2=${i} distance=${d} cum1=${track2[t1Index].distance} cum2=${track2[i].distance}`,
+          );
+        }
+        if (d > distance) {
+          break;
+        }
+        t2Index = i;
+        distance = d;
+      }
+
+      // OK, we now have the closest point on t2. Check to see if it's
+      // in the window.
+      if (distance > threshold) {
+        console.log(
+          `Track 1 and track 2 diverged at t1=${t1Index} t2=${t2Index}`,
+        );
+        matching = false;
+      }
+    } else {
+      // We don't have a match.
+      // Step forward on t2 to see if there is any future point that
+      // is within the threshold of the current point on t1.
+      for (let i = t2Index; i < track2.length; i++) {
+        const d = getDistanceFromPointInKm(track1[t1Index], track2[i]);
+
+        if (d < threshold) {
+          t2Index = i;
+          console.log(
+            `Track 1 and track 2 converged at t1=${t1Index} t2=${t2Index}`,
+          );
+          matching = true;
+          break;
+        }
+      }
     }
   }
 

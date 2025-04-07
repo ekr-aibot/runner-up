@@ -46,6 +46,7 @@ function initializeSlider() {
 function updateMarkers() {
   const slider = document.getElementById("time-slider");
   const currentTime = parseInt(slider.value);
+  console.log(`current Time = ${currentTime}`);
 
   for (let i in tracks) {
     let track = tracks[i];
@@ -74,8 +75,8 @@ function updateMarkers() {
 
 function updateTracks() {
   // TODO: Remove these.
-  //const segments = findMatchingSegments(tracks[0], tracks[1], 0.03);
-  //  tracks = consolidateSegments(tracks, segments);
+  const segments = findMatchingSegments(tracks[0], tracks[1], 0.03);
+  tracks = consolidateSegments(tracks, segments);
 
   // Clean up.
   markerGroup.clearLayers();

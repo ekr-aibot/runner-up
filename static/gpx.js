@@ -445,22 +445,26 @@ function consolidateSegments(tracks, segments) {
           return s;
         }),
       );
-
-      // Now recompute all the distances.
-      let cumulativeDistance = 0;
-      for (index in newtrack) {
-        if (index > 0) {
-          cumulativeDistance +=
-            getDistanceFromLatLonInKm(
-              newtrack[index - 1].lat,
-              newtrack[index - 1].lon,
-              newtrack[index].lat,
-              newtrack[index].lon,
-            ) * 1000; // Convert to meters
-        }
-        newtrack.distance = cumulativeDistance;
-      }
     });
+
+    // Now recompute all the distances.
+    let cumulativeDistance = 0;
+    for (index in newtrack) {
+      if (index > 0) {
+        const distance =
+          getDistanceFromLatLonInKm(
+            newtrack[index - 1].lat,
+            newtrack[index - 1].lon,
+            newtrack[index].lat,
+            newtrack[index].lon,
+          ) * 1000; // Convert to meters
+        if (distance > 1000) {
+          console.log("Too long");
+        }
+        cumulativeDistance += distance;
+        newtrack[index].distance = cumulativeDistance;
+      }
+    }
 
     newtracks.push(newtrack);
   });

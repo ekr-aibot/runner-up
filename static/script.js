@@ -74,10 +74,21 @@ function updateMarkers() {
 }
 
 function updateTracks() {
-  // TODO: Remove these.
-  const segments = findMatchingSegments(tracks[0], tracks[1], 0.03);
-  tracks = consolidateSegments(tracks, segments);
+  // TODO(ekr@rtfm.com): Handle >2 tracks.
+  const segments = findMatchingSegments(tracks[0], tracks[1], 0.02, 20);
 
+  const trim_tracks = document.querySelector("#trim-tracks");
+  if (segments.length > 1) {
+    trim_tracks.style.display = "flex";
+    tracks = consolidateSegments(tracks, segments);
+  } else {
+    trim_tracks.style.display = "none";
+  }
+
+  displayTracks();
+}
+
+function displayTracks() {
   // Clean up.
   markerGroup.clearLayers();
   removeGraphs();

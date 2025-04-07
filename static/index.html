@@ -13,9 +13,15 @@
   <div class="logo-container">
     <img src="logo.png" width="200">
   </div>
-  <div>
-    <label id="file-label" for="track">Add a GPS track</label><input type="file" id="track">
+  <div id="control-bar">
+    <div>
+      <label id="file-label" for="track">Add a GPS track</label><input type="file" id="track">
+    </div>
+    <div id="trim-tracks">
+      Incomplete matching tracks <button id="trim-button">Trim to common portions</button>
+    </div>
   </div>
+  
   <div>
     <div id="map-container">
       <div id="map"></div>

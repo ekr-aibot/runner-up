@@ -80,7 +80,6 @@ function updateTracks() {
   const trim_tracks = document.querySelector("#trim-tracks");
   if (segments.length > 1) {
     trim_tracks.style.display = "flex";
-    tracks = consolidateSegments(tracks, segments);
   } else {
     trim_tracks.style.display = "none";
   }
@@ -122,7 +121,7 @@ function drawGraphs(currentTime) {
   removeGraphs();
   let type = document.querySelector("#compare-by-menu").value;
 
-  drawElevationGraph(currentTime);
+  drawElevationGraphSegments(currentTime);
 
   if (type === "time") {
     drawDifferenceGraph(
@@ -252,6 +251,103 @@ function drawElevationGraph(currentTime) {
       r: 6,
     }),
   );
+
+  const chart = Plot.plot({
+    width: graphContainer.clientWidth,
+    marks: marks,
+    x: {
+      type: "linear",
+      label: `Distance (${Units().distanceUnits()})`,
+    },
+    y: {
+      label: `Elevation (${Units().elevationUnits()})`,
+    },
+  });
+
+  graphContainer.appendChild(chart);
+}
+
+function drawElevationGraphSegments(currentTime) {
+  if (tracks.length < 2) {
+    return;
+  }
+
+  const segments = findMatchingSegments(tracks[0], tracks[1], 0.02, 20);
+  const graphContainer = document.getElementById("graph");
+
+  let marks = [];
+  let current_distance = 0;
+  let last_points = undefined;
+
+  // First accumulate the tracks for this segment.
+  segments.forEach((segment) => {
+    let segment_tracks = [];
+    let max_distance = 0;
+
+    // Handle each segment.
+    segment.forEach((piece, i) => {
+      // First handle the gap, if any. The first segment
+      // always lines up, so there is only a gap if
+      // current_distance > 0.
+      if (current_distance > 0) {
+        // Snip out the points between the last segment and
+        // this segment.
+        const points = structuredClone(
+          tracks[i].slice(last_points[i], piece[0]),
+        );
+        // Graph this if it's a real segment.
+        if (points.length > 1) {
+          const track = adjustTrackDistance(points, current_distance);
+          track.forEach((point) => {
+            point.normalizedDistance = point.distance;
+          });
+
+          marks.push(
+            Plot.line(track, {
+              x: (d) => Units().distanceValue(d.normalizedDistance),
+              y: (d) => Units().elevationValue(d.elevation),
+              stroke: getColor(i),
+            }),
+          );
+          max_distance = Math.max(
+            track[track.length - 1].distance,
+            max_distance,
+          );
+        }
+      }
+
+      // Now store the segment points.
+      const points = structuredClone(tracks[i].slice(piece[0], piece[1] + 1));
+      segment_tracks.push(points);
+    });
+
+    // Update current_distance to be after the longest
+    // gap.
+    current_distance = max_distance;
+
+    // Now normalize them.
+    const track = adjustTrackDistance(segment_tracks[0], current_distance);
+    track.forEach((point) => {
+      point.normalizedDistance = point.distance;
+    });
+
+    // At this point, these tracks should match, so we
+    // just plot the first.
+    marks.push(
+      Plot.line(track, {
+        x: (d) => Units().distanceValue(d.normalizedDistance),
+        y: (d) => Units().elevationValue(d.elevation),
+        color: "black",
+      }),
+    );
+
+    // Record things for the gap.
+    last_points = segment.map((s) => s[1]);
+    current_distance = track[track.length - 1].distance;
+    console.log(`Current distance ${current_distance}`);
+  });
+
+  console.log(marks);
 
   const chart = Plot.plot({
     width: graphContainer.clientWidth,

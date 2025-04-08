@@ -471,3 +471,57 @@ function consolidateSegments(tracks, segments) {
 
   return newtracks;
 }
+
+// Adjust the track to start contiguously with the
+// current_distance. There are two cases:
+//
+// 1. current_distance is 0, in which case no
+//    adjustment is needed.
+// 2. current_distance is nonzero, in which case
+//    we set track[0] to be right after the
+//    current_distance, specifically the distance
+//    between track[0] and track[1].
+function adjustTrackDistance(track, current_distance) {
+  if (!current_distance) {
+    return track;
+  }
+
+  const distance_offset =
+    track[0].distance -
+    current_distance -
+    (track[1].distance - track[0].distance);
+
+  return track.map((point) => {
+    return {
+      distance: point.distance - distance_offset,
+      normalizedDistance: point.distance - distance_offset,
+      ...point,
+    };
+  });
+}
+
+// Recompute the distance for a track using the
+// given start value.
+function computeDistanceForTrack(track, start = 0) {
+  // Now recompute all the distances.
+  let cumulativeDistance = start;
+
+  for (let index in track) {
+    if (index > 0) {
+      const distance =
+        getDistanceFromLatLonInKm(
+          track[index - 1].lat,
+          track[index - 1].lon,
+          track[index].lat,
+          track[index].lon,
+        ) * 1000; // Convert to meters
+      if (distance > 1000) {
+        console.log("Too long");
+      }
+      cumulativeDistance += distance;
+      track[index].distance = cumulativeDistance;
+    }
+  }
+
+  return track;
+}

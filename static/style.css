@@ -8,8 +8,13 @@
 }
 
 #trim-tracks {
-    display: none;
+    display: none; /* Use Flexbox layout */
+    align-items: center; /* Vertically center items in the container */
+    gap: 0.5em; /* Add a small gap between label and checkbox */
+    border: 1px dashed lightgray; /* Optional: just to see the container */
+    padding: 0.5em;
 }
+
 .logo-container {
     display: flex;
 }

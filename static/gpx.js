@@ -80,38 +80,6 @@ function getPositionAtTime(track, time) {
   return null; // Should not reach here
 }
 
-// Helper function to get distance at a specific time
-function getDistanceAtTime(track, time) {
-  for (let i = 1; i < track.length; i++) {
-    if (track[i].time >= time) {
-      // Interpolate distance
-      const ratio =
-        (time - track[i - 1].time) / (track[i].time - track[i - 1].time);
-      return (
-        track[i - 1].distance +
-        (track[i].distance - track[i - 1].distance) * ratio
-      );
-    }
-  }
-  return 0; // Default to 0 if time is before the first point
-}
-
-// Helper function to get normalized distance at a specific time
-function getNormalizedDistanceAtTime(track, time) {
-  for (let i = 1; i < track.length; i++) {
-    if (track[i].time >= time) {
-      // Interpolate distance
-      const ratio =
-        (time - track[i - 1].time) / (track[i].time - track[i - 1].time);
-      return (
-        track[i - 1].normalizedDistance +
-        (track[i].normalizedDistance - track[i - 1].normalizedDistance) * ratio
-      );
-    }
-  }
-  return 0; // Default to 0 if time is before the first point
-}
-
 // Thanks, Gemini.
 /**
  * Linearly interpolates a value using an ESTIMATION + LOCAL SEARCH strategy

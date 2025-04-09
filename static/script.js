@@ -1,36 +1,18 @@
 let minTime = Infinity;
 let maxTime = -Infinity;
 
+// The raw GPX data we loaded in.
+let data = [];
+
+// The tracks to actually plot transformed into read-to-plot
+// version.
 let tracks = [];
-let markers = [];
 
-function createLegend() {
-  const legendContainer = document.getElementById("legend-container");
-  clearChildren(legendContainer);
-  for (let i in tracks) {
-    const track = tracks[i];
+// The individual matching segments for each track.
+let segments = null;
 
-    const legendLine = document.getElementById("legend-line");
-    const clone = legendLine.content.cloneNode(true);
-    clone.querySelector("#legend-text").textContent =
-      `Date: ${getStartDate(track)}`;
-    clone.querySelector("#legend-icon").style.backgroundColor = getColor(i);
-    let trackId = i;
-
-    clone.querySelector(".delete-button").addEventListener("click", (_e) => {
-      tracks.splice(trackId, 1);
-      updateTracks();
-    });
-
-    legendContainer.appendChild(clone);
-  }
-
-  legendContainer.style.top = "10px";
-  legendContainer.style.right = "10px";
-  legendContainer.style.backgroundColor = "white";
-  legendContainer.style.padding = "10px";
-  legendContainer.style.border = "1px solid #ccc";
-}
+// The map object.
+let lmap = undefined;
 
 function initializeSlider() {
   const slider = document.getElementById("time-slider");
@@ -48,39 +30,28 @@ function updateMarkers() {
   const currentTime = parseInt(slider.value);
   console.log(`current Time = ${currentTime}`);
 
+  lmap.clearMarkers();
   for (let i in tracks) {
     let track = tracks[i];
     const position = getPositionAtTime(track, currentTime);
-    const color = getColor(i);
     if (position) {
-      if (!markers[i]) {
-        markers[i] = L.marker([position.lat, position.lon], {
-          icon: L.divIcon({
-            className: "my-div-icon",
-            html: `<div style="background-color: ${color}; width: 10px; height: 10px; border-radius: 5px;"></div>`,
-          }),
-        }).addTo(map);
-      } else {
-        markers[i].setLatLng([position.lat, position.lon]);
-      }
+      lmap.setMarker(position, i);
     }
   }
-  // Remove unused marks.
-  while (tracks.length < markers.length) {
-    const mark = markers.pop();
-    mark.remove();
-  }
+
   drawGraphs(currentTime);
 }
 
 function updateTracks() {
   // TODO(ekr@rtfm.com): Handle >2 tracks.
-  const segments = findMatchingSegments(tracks[0], tracks[1], 0.02, 20);
+  segments = findMatchingSegments(data[0], data[1], 0.03, 20);
 
   const trim_tracks = document.querySelector("#trim-tracks");
   if (segments.length > 1) {
+    console.log("More than one segment");
     trim_tracks.style.display = "flex";
   } else {
+    console.log("All segments match");
     trim_tracks.style.display = "none";
   }
 
@@ -88,11 +59,26 @@ function updateTracks() {
 }
 
 function displayTracks() {
-  // Clean up.
-  markerGroup.clearLayers();
-  removeGraphs();
+  tracks = structuredClone(data);
 
-  normalizeTracks(tracks);
+  if (segments.length > 1) {
+    const trim_tracks = document.querySelector("#trim-tracks-checkbox");
+    if (trim_tracks.checked) {
+      tracks = consolidateSegments(tracks, segments);
+      normalizeTracks(tracks);
+    }
+  } else {
+    normalizeTracks(tracks);
+  }
+  tracks.forEach((track) => {
+    track.forEach((point) => {
+      point.displayDistance = point.normalizedDistance ?? point.distance;
+    });
+  });
+
+  // Clean up
+  lmap.clear();
+  removeGraphs();
 
   for (i in tracks) {
     const track = tracks[i];
@@ -100,13 +86,9 @@ function displayTracks() {
     minTime = Math.min(track[0].time, minTime);
     maxTime = Math.max(track[track.length - 1].time, maxTime);
 
-    const latlngs = track.map((point) => [point.lat, point.lon]);
-    const polyline = L.polyline(latlngs, {
-      color: getColor(i),
-    }).addTo(markerGroup);
-    map.fitBounds(polyline.getBounds()); // Zoom to the track
+    lmap.drawTrack(track);
   }
-  createLegend();
+  lmap.createLegend(tracks);
   initializeSlider();
 }
 
@@ -121,12 +103,12 @@ function drawGraphs(currentTime) {
   removeGraphs();
   let type = document.querySelector("#compare-by-menu").value;
 
-  drawElevationGraphSegments(currentTime);
+  drawElevationGraph(currentTime);
 
   if (type === "time") {
     drawDifferenceGraph(
       currentTime,
-      "normalizedDistance",
+      "displayDistance",
       "time",
       "Time Behind (s)",
     );
@@ -134,7 +116,7 @@ function drawGraphs(currentTime) {
     drawDifferenceGraph(
       currentTime,
       "time",
-      "normalizedDistance",
+      "displayDistance",
       `Distance Behind (${Units().distanceDiffUnits()})`,
       (v) => Units().distanceDiffValue(-1 * v),
     );
@@ -213,7 +195,7 @@ function drawElevationGraph(currentTime) {
 
   let marks = [
     Plot.line(tracks[0], {
-      x: (d) => Units().distanceValue(d.normalizedDistance),
+      x: (d) => Units().distanceValue(d.displayDistance),
       y: (d) => Units().elevationValue(d.elevation),
     }),
   ];
@@ -226,13 +208,13 @@ function drawElevationGraph(currentTime) {
       track,
       "time",
       currentTime,
-      "normalizedDistance",
+      "displayDistance",
     );
 
     // Now get the elevation on track[0];
     const elevation = getValueAtPosition(
       tracks[0],
-      "normalizedDistance",
+      "displayDistance",
       distance,
       "elevation",
     );
@@ -251,103 +233,6 @@ function drawElevationGraph(currentTime) {
       r: 6,
     }),
   );
-
-  const chart = Plot.plot({
-    width: graphContainer.clientWidth,
-    marks: marks,
-    x: {
-      type: "linear",
-      label: `Distance (${Units().distanceUnits()})`,
-    },
-    y: {
-      label: `Elevation (${Units().elevationUnits()})`,
-    },
-  });
-
-  graphContainer.appendChild(chart);
-}
-
-function drawElevationGraphSegments(currentTime) {
-  if (tracks.length < 2) {
-    return;
-  }
-
-  const segments = findMatchingSegments(tracks[0], tracks[1], 0.02, 20);
-  const graphContainer = document.getElementById("graph");
-
-  let marks = [];
-  let current_distance = 0;
-  let last_points = undefined;
-
-  // First accumulate the tracks for this segment.
-  segments.forEach((segment) => {
-    let segment_tracks = [];
-    let max_distance = 0;
-
-    // Handle each segment.
-    segment.forEach((piece, i) => {
-      // First handle the gap, if any. The first segment
-      // always lines up, so there is only a gap if
-      // current_distance > 0.
-      if (current_distance > 0) {
-        // Snip out the points between the last segment and
-        // this segment.
-        const points = structuredClone(
-          tracks[i].slice(last_points[i], piece[0]),
-        );
-        // Graph this if it's a real segment.
-        if (points.length > 1) {
-          const track = adjustTrackDistance(points, current_distance);
-          track.forEach((point) => {
-            point.normalizedDistance = point.distance;
-          });
-
-          marks.push(
-            Plot.line(track, {
-              x: (d) => Units().distanceValue(d.normalizedDistance),
-              y: (d) => Units().elevationValue(d.elevation),
-              stroke: getColor(i),
-            }),
-          );
-          max_distance = Math.max(
-            track[track.length - 1].distance,
-            max_distance,
-          );
-        }
-      }
-
-      // Now store the segment points.
-      const points = structuredClone(tracks[i].slice(piece[0], piece[1] + 1));
-      segment_tracks.push(points);
-    });
-
-    // Update current_distance to be after the longest
-    // gap.
-    current_distance = max_distance;
-
-    // Now normalize them.
-    const track = adjustTrackDistance(segment_tracks[0], current_distance);
-    track.forEach((point) => {
-      point.normalizedDistance = point.distance;
-    });
-
-    // At this point, these tracks should match, so we
-    // just plot the first.
-    marks.push(
-      Plot.line(track, {
-        x: (d) => Units().distanceValue(d.normalizedDistance),
-        y: (d) => Units().elevationValue(d.elevation),
-        color: "black",
-      }),
-    );
-
-    // Record things for the gap.
-    last_points = segment.map((s) => s[1]);
-    current_distance = track[track.length - 1].distance;
-    console.log(`Current distance ${current_distance}`);
-  });
-
-  console.log(marks);
 
   const chart = Plot.plot({
     width: graphContainer.clientWidth,
@@ -383,7 +268,7 @@ function addFileListener(name) {
       console.log(file);
       reader.onload = (e) => {
         const track = parseGPX(e.target.result);
-        tracks.push(track);
+        data.push(track);
         updateTracks();
       };
       reader.readAsText(file);
@@ -397,26 +282,14 @@ function fetchGPXTrack(url) {
     .then((response) => response.text())
     .then((gpxData) => {
       const track = parseGPX(gpxData);
-      tracks.push(track);
+      data.push(track);
       updateTracks();
     })
     .catch((error) => console.error("Error loading GPX:", error));
 }
 
-let map = undefined;
-let markerGroup = undefined;
-
 document.addEventListener("DOMContentLoaded", () => {
-  // Initialize Leaflet map
-  map = L.map("map").setView([0, 0], 2); // Set initial view to a very zoomed out view.
-
-  // Add a tile layer (OpenStreetMap)
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-  }).addTo(map);
-
-  markerGroup = L.featureGroup().addTo(map);
+  lmap = LeafletMap();
 
   // Set up the deploy date.
   fetch("deploy-date.txt")
@@ -438,4 +311,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   addFileListener("track");
   addGraphTypeListener();
+  document
+    .querySelector("#trim-tracks-checkbox")
+    .addEventListener("change", displayTracks);
 });

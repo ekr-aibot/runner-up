@@ -43,10 +43,39 @@ function LeafletMap() {
     }
   }
 
+  function createLegend(tracks) {
+    const legendContainer = document.getElementById("legend-container");
+    clearChildren(legendContainer);
+    for (let i in tracks) {
+      const track = tracks[i];
+
+      const legendLine = document.getElementById("legend-line");
+      const clone = legendLine.content.cloneNode(true);
+      clone.querySelector("#legend-text").textContent =
+        `Date: ${getStartDate(track)}`;
+      clone.querySelector("#legend-icon").style.backgroundColor = getColor(i);
+      let trackId = i;
+
+      clone.querySelector(".delete-button").addEventListener("click", (_e) => {
+        data.splice(trackId, 1);
+        updateTracks();
+      });
+
+      legendContainer.appendChild(clone);
+    }
+
+    legendContainer.style.top = "10px";
+    legendContainer.style.right = "10px";
+    legendContainer.style.backgroundColor = "white";
+    legendContainer.style.padding = "10px";
+    legendContainer.style.border = "1px solid #ccc";
+  }
+
   return {
     drawTrack,
     setMarker,
     clear,
     clearMarkers,
+    createLegend,
   };
 }

@@ -1,0 +1,164 @@
+function removeGraphs() {
+  const graphContainer = document.getElementById("graph");
+  while (graphContainer.children.length) {
+    graphContainer.removeChild(graphContainer.children[0]);
+  }
+}
+
+function drawGraphs(currentTime) {
+  removeGraphs();
+  let type = document.querySelector("#compare-by-menu").value;
+
+  drawElevationGraph(currentTime);
+
+  if (type === "time") {
+    drawDifferenceGraph(
+      currentTime,
+      "displayDistance",
+      "time",
+      "Time Behind (s)",
+    );
+  } else if (type === "distance") {
+    drawDifferenceGraph(
+      currentTime,
+      "time",
+      "displayDistance",
+      `Distance Behind (${Units().distanceDiffUnits()})`,
+      (v) => Units().distanceDiffValue(-1 * v),
+    );
+  }
+}
+
+function drawDifferenceGraph(
+  currentTime,
+  x_name,
+  y_name,
+  y_label,
+  transform = (v) => v,
+) {
+  if (tracks.length < 2) {
+    return;
+  }
+
+  let differences = [];
+  const graphStart = minTime;
+  const graphEnd = tracks.reduce(
+    (a, c) => Math.min(a, c[c.length - 1].time),
+    Infinity,
+  );
+  let comparisonTracks = tracks.slice(1);
+
+  for (let t = graphStart; t <= graphEnd; t += 1) {
+    const baseline = tracks[0][t][y_name];
+    const x_value =
+      x_name === "time" ? t : getValueAtPosition(tracks[0], "time", t, x_name);
+
+    comparisonTracks.map((track) => {
+      const comparator = getValueAtPosition(track, x_name, x_value, y_name);
+      differences.push({
+        time: t,
+        diff: transform(comparator) - transform(baseline),
+        trackDate: getStartDate(track),
+      });
+    });
+  }
+
+  const graphContainer = document.getElementById("graph");
+
+  const chart = Plot.plot({
+    width: graphContainer.clientWidth,
+    marks: [
+      Plot.line(differences, {
+        x: "time",
+        y: "diff",
+        stroke: (d) => d.trackDate,
+      }),
+      Plot.ruleX([currentTime], { stroke: "red" }), // Vertical bar
+      /*
+      Plot.text([{ x: currentTime, y: 0, label: "Diff" }], {
+        x: "x",
+        y: "y",
+        text: "label",
+      }),*/
+    ],
+    x: {
+      type: "linear",
+      label: "Time (s)",
+    },
+    y: {
+      label: y_label,
+    },
+  });
+
+  graphContainer.appendChild(chart);
+}
+
+function drawElevationGraph(currentTime) {
+  const graphContainer = document.getElementById("graph");
+  if (tracks.length < 1) {
+    return;
+  }
+
+  let marks = [
+    Plot.line(tracks[0], {
+      x: (d) => Units().distanceValue(d.displayDistance),
+      y: (d) => Units().elevationValue(d.elevation),
+    }),
+  ];
+
+  let dots = [];
+
+  tracks.forEach((track, index) => {
+    // First get the distance on this track.
+    const distance = getValueAtPosition(
+      track,
+      "time",
+      currentTime,
+      "displayDistance",
+    );
+
+    // Now get the elevation on track[0];
+    const elevation = getValueAtPosition(
+      tracks[0],
+      "displayDistance",
+      distance,
+      "elevation",
+    );
+    dots.push({
+      x: Units().distanceValue(distance),
+      y: Units().elevationValue(elevation),
+      color: getColor(index),
+    });
+  });
+
+  marks.push(
+    Plot.dot(dots, {
+      x: "x",
+      y: "y",
+      fill: (d) => d.color,
+      r: 6,
+    }),
+  );
+
+  const chart = Plot.plot({
+    width: graphContainer.clientWidth,
+    marks: marks,
+    x: {
+      type: "linear",
+      label: `Distance (${Units().distanceUnits()})`,
+    },
+    y: {
+      label: `Elevation (${Units().elevationUnits()})`,
+    },
+  });
+
+  graphContainer.appendChild(chart);
+}
+
+function addGraphTypeListener() {
+  document
+    .querySelector("#compare-by-menu")
+    .addEventListener("change", (_e) => {
+      updateMarkers();
+    });
+}

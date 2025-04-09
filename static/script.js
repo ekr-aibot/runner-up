@@ -44,6 +44,11 @@ function dataUpdated() {
   }
 
   displayTracks();
+
+  // Show/hide the file picker depending on how many tracks have
+  // been loaded.
+  document.querySelector("#add-track").style.display =
+    data.length >= 2 ? "none" : "flex";
 }
 
 function displayTracks() {

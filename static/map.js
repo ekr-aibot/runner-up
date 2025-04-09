@@ -35,6 +35,9 @@ function LeafletMap() {
 
   function clear() {
     markerGroup.clearLayers();
+    clearMarkers();
+    const legendContainer = document.getElementById("legend-container");
+    clearChildren(legendContainer);
   }
 
   function clearMarkers() {

@@ -22,6 +22,11 @@ let lmap = undefined;
 // The data has been updated, so we need to basically
 // start from scratch.
 function dataUpdated() {
+  if (!data.length) {
+    lmap.clear();
+    removeGraphs();
+    return;
+  }
   // TODO(ekr@rtfm.com): Handle >2 tracks.
   if (data.length > 1) {
     segments = findMatchingSegments(data[0], data[1], 0.03, 20);

@@ -101,12 +101,26 @@ function drawElevationGraph(currentTime) {
     return;
   }
 
+  // We always plot track[0]
   let marks = [
     Plot.line(tracks[0], {
       x: (d) => Units().distanceValue(d.displayDistance),
       y: (d) => Units().elevationValue(d.elevation),
+      stroke: all_match ? "black" : getColor(0),
     }),
   ];
+
+  if (!all_match) {
+    for (let i = 1; i < tracks.length; i++) {
+      marks.push(
+        Plot.line(tracks[i], {
+          x: (d) => Units().distanceValue(d.displayDistance),
+          y: (d) => Units().elevationValue(d.elevation),
+          stroke: getColor(i),
+        }),
+      );
+    }
+  }
 
   let dots = [];
 
@@ -121,7 +135,7 @@ function drawElevationGraph(currentTime) {
 
     // Now get the elevation on track[0];
     const elevation = getValueAtPosition(
-      tracks[0],
+      all_match ? tracks[0] : tracks[index],
       "displayDistance",
       distance,
       "elevation",

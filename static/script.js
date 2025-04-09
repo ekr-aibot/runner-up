@@ -23,7 +23,7 @@ let lmap = undefined;
 // start from scratch.
 function dataUpdated() {
   // TODO(ekr@rtfm.com): Handle >2 tracks.
-  if (tracks.length > 1) {
+  if (data.length > 1) {
     segments = findMatchingSegments(data[0], data[1], 0.03, 20);
   } else {
     segments = [[0, data[0].length - 1]];

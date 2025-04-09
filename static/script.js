@@ -35,7 +35,10 @@ function dataUpdated() {
   }
 
   const trim_tracks = document.querySelector("#trim-tracks");
-  if (segments.length > 1) {
+  if (!segments) {
+    console.log("No matching segments");
+    trim_tracks.style.display = "none";
+  } else if (segments.length > 1) {
     console.log("More than one segment");
     trim_tracks.style.display = "flex";
   } else {
@@ -54,7 +57,9 @@ function dataUpdated() {
 function displayTracks() {
   tracks = structuredClone(data);
 
-  if (segments.length > 1) {
+  if (!segments) {
+    all_match = false;
+  } else if (segments.length > 1) {
     const trim_tracks = document.querySelector("#trim-tracks-checkbox");
     if (trim_tracks.checked) {
       tracks = consolidateSegments(tracks, segments);

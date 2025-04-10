@@ -57,6 +57,9 @@
     display: flex;
 }
 
+#license {
+    margin-left: 20px;
+}
 #settings {
     display: flex;
     margin-left: auto;

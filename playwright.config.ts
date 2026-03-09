@@ -10,7 +10,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: 'http://localhost:3003',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -26,8 +26,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'node app.js',
-    url: 'http://localhost:3000',
+    command: 'PORT=3003 node app.js',
+    url: 'http://localhost:3003',
     reuseExistingServer: !process.env.CI,
   },
 });

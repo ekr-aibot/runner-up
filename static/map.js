@@ -64,12 +64,12 @@ function LeafletMap() {
           // Shift+click: permanently delete from localStorage
           const trackDate = getStartDate(track);
           if (confirm(`Permanently delete track from ${trackDate} from saved tracks?`)) {
-            deleteGPXFromLocalStorage(trackId);
+            removeTrack(trackId, true);
           }
+        } else {
+          // Normal click: remove from display only
+          removeTrack(trackId, false);
         }
-        data.splice(trackId, 1);
-        dataUpdated();
-        populateSavedTracks();
       });
 
       legendContainer.appendChild(clone);

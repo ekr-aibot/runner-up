@@ -1,8 +1,16 @@
 import { Page } from '@playwright/test';
 
 export interface StoredTrack {
+  id?: string;
   name: string;
   data: string;
+}
+
+/**
+ * Generate a unique ID for storage entries.
+ */
+function generateStorageId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
 }
 
 /**
@@ -24,11 +32,18 @@ export async function clearLocalStorageNow(page: Page): Promise<void> {
 /**
  * Seed localStorage with tracks after page has loaded.
  * Call this after page.goto(), then reload for the app to pick up the data.
+ * Automatically generates IDs if not provided.
  */
 export async function seedLocalStorageNow(page: Page, tracks: StoredTrack[]): Promise<void> {
+  // Add IDs to tracks that don't have them
+  const tracksWithIds = tracks.map((track, index) => ({
+    id: track.id || generateStorageId() + index,
+    name: track.name,
+    data: track.data,
+  }));
   await page.evaluate((tracksJson) => {
     localStorage.setItem('gpxUploads', tracksJson);
-  }, JSON.stringify(tracks));
+  }, JSON.stringify(tracksWithIds));
 }
 
 /**

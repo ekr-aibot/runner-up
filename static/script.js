@@ -4,6 +4,9 @@ let maxTime = -Infinity;
 // The raw GPX data we loaded in.
 let data = [];
 
+// Map from data index to localStorage entry ID.
+let dataToStorageId = [];
+
 // The tracks to actually plot transformed into ready-to-plot
 // version.
 let tracks = [];
@@ -109,7 +112,8 @@ function addFileListener(name) {
         const gpxText = e.target.result;
         const track = parseGPX(gpxText);
         data.push(track);
-        saveGPXToLocalStorage(file.name, gpxText);
+        const storageId = saveGPXToLocalStorage(file.name, gpxText);
+        dataToStorageId.push(storageId);
         dataUpdated();
         populateSavedTracks();
       };
@@ -148,18 +152,28 @@ function updateMarkers() {
   drawGraphs(currentTime, all_match);
 }
 
-// Save a GPX file to localStorage.
+// Generate a unique ID for storage entries.
+function generateStorageId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+}
+
+// Save a GPX file to localStorage. Returns the storage ID.
 function saveGPXToLocalStorage(name, gpxText) {
   try {
     const stored = JSON.parse(localStorage.getItem("gpxUploads") || "[]");
-    // Replace if same filename already stored.
-    const idx = stored.findIndex((e) => e.name === name);
-    if (idx >= 0) {
-      stored[idx].data = gpxText;
-    } else {
-      stored.push({ name, data: gpxText });
+
+    // Check for bitwise duplicate (same GPX data content).
+    const existingIdx = stored.findIndex((e) => e.data === gpxText);
+    if (existingIdx >= 0) {
+      // Return the existing entry's ID instead of creating a duplicate.
+      return stored[existingIdx].id;
     }
+
+    // Create new entry with unique ID.
+    const id = generateStorageId();
+    stored.push({ id, name, data: gpxText });
     localStorage.setItem("gpxUploads", JSON.stringify(stored));
+    return id;
   } catch (e) {
     console.error("Failed to save GPX to localStorage:", e);
     if (e.name === "QuotaExceededError") {
@@ -167,30 +181,17 @@ function saveGPXToLocalStorage(name, gpxText) {
     } else {
       alert("Failed to save track to storage: " + e.message);
     }
+    return null;
   }
 }
 
-// Delete a GPX track from localStorage by its index in the data array.
-// We match by comparing start dates since that's what we display.
-function deleteGPXFromLocalStorage(trackIndex) {
+// Delete a GPX track from localStorage by its storage ID.
+function deleteGPXFromLocalStorage(storageId) {
+  if (!storageId) return;
+
   try {
-    const trackToDelete = data[trackIndex];
-    if (!trackToDelete || !trackToDelete.length) return;
-
-    const trackDate = getStartDate(trackToDelete);
     const stored = JSON.parse(localStorage.getItem("gpxUploads") || "[]");
-
-    // Find and remove the matching entry by parsing and comparing start dates.
-    const newStored = stored.filter((entry) => {
-      try {
-        const parsedTrack = parseGPX(entry.data);
-        return getStartDate(parsedTrack) !== trackDate;
-      } catch (e) {
-        // Keep corrupted entries for now; user can clean them up separately.
-        return true;
-      }
-    });
-
+    const newStored = stored.filter((entry) => entry.id !== storageId);
     localStorage.setItem("gpxUploads", JSON.stringify(newStored));
   } catch (e) {
     console.error("Failed to delete GPX from localStorage:", e);
@@ -204,12 +205,19 @@ function fetchGPXTrack(url) {
     .then((gpxData) => {
       const track = parseGPX(gpxData);
       data.push(track);
+      dataToStorageId.push(null); // Not from localStorage
       dataUpdated();
     })
     .catch((error) => console.error("Error loading GPX:", error));
 }
 
+// Get the set of storage IDs currently being displayed.
+function getDisplayedStorageIds() {
+  return new Set(dataToStorageId.filter((id) => id !== null));
+}
+
 // Populate the saved tracks dropdown from localStorage.
+// Excludes tracks that are already being displayed.
 function populateSavedTracks() {
   const select = document.getElementById("saved-tracks");
 
@@ -218,12 +226,19 @@ function populateSavedTracks() {
     select.remove(1);
   }
 
-  // Add localStorage tracks.
+  // Get IDs of tracks currently displayed.
+  const displayedIds = getDisplayedStorageIds();
+
+  // Add localStorage tracks that aren't already displayed.
   try {
     const stored = JSON.parse(localStorage.getItem("gpxUploads") || "[]");
     for (const entry of stored) {
+      // Skip if already displayed.
+      if (displayedIds.has(entry.id)) {
+        continue;
+      }
       const option = document.createElement("option");
-      option.value = entry.name;
+      option.value = entry.id;
       option.textContent = entry.name;
       select.appendChild(option);
     }
@@ -236,15 +251,15 @@ function populateSavedTracks() {
 function addSavedTrackListener() {
   const select = document.getElementById("saved-tracks");
   select.addEventListener("change", (e) => {
-    const value = e.target.value;
-    if (!value) return;
+    const storageId = e.target.value;
+    if (!storageId) return;
 
     // Reset dropdown back to placeholder.
     select.selectedIndex = 0;
 
     try {
       const stored = JSON.parse(localStorage.getItem("gpxUploads") || "[]");
-      const entry = stored.find((s) => s.name === value);
+      const entry = stored.find((s) => s.id === storageId);
       if (entry) {
         let track;
         try {
@@ -255,23 +270,30 @@ function addSavedTrackListener() {
           return;
         }
 
-        // Check if this track is already loaded by comparing start dates.
-        const newTrackDate = getStartDate(track);
-        const alreadyLoaded = data.some(
-          (existingTrack) => getStartDate(existingTrack) === newTrackDate
-        );
-        if (alreadyLoaded) {
-          alert("This track is already loaded.");
-          return;
-        }
-
         data.push(track);
+        dataToStorageId.push(storageId);
         dataUpdated();
+        populateSavedTracks();
       }
     } catch (err) {
       console.error("Failed to load track from localStorage:", err);
     }
   });
+}
+
+// Remove a track from display by its data index.
+// If permanent is true, also delete from localStorage.
+function removeTrack(trackIndex, permanent) {
+  const storageId = dataToStorageId[trackIndex];
+
+  if (permanent && storageId) {
+    deleteGPXFromLocalStorage(storageId);
+  }
+
+  data.splice(trackIndex, 1);
+  dataToStorageId.splice(trackIndex, 1);
+  dataUpdated();
+  populateSavedTracks();
 }
 
 document.addEventListener("DOMContentLoaded", () => {

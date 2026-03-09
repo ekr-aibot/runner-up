@@ -24,3 +24,4 @@ playwright/.cache/
 # Gas Town (added by gt)
 .claude/
 __pycache__/
+package-lock.json

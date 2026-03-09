@@ -39,13 +39,17 @@ function dataUpdated() {
   }
   // TODO(ekr@rtfm.com): Handle >2 tracks.
   if (data.length > 1) {
-    segments = findMatchingSegments(data[0], data[1], 0.03, 20);
-    // Also compute new alignment
+    // Use DTW alignment (handles different sampling rates correctly)
     alignment = findOverlappingRegions(data[0], data[1], {
       threshold: 0.03,
-      searchWindow: 30,
       minSegmentPoints: 3
     });
+    // Derive segments from alignment for backward compatibility
+    if (alignment && alignment.overlappingRegions) {
+      segments = alignment.overlappingRegions.map(r => [r.track1Range[0], r.track1Range[1]]);
+    } else {
+      segments = null;
+    }
   } else {
     segments = [[0, data[0].length - 1]];
     alignment = null;
@@ -54,22 +58,19 @@ function dataUpdated() {
   const trim_tracks = document.querySelector("#trim-tracks");
   const display_mode = document.querySelector("#display-mode");
 
-  if (!segments) {
+  if (!alignment || !alignment.overlappingRegions) {
     console.log("No matching segments");
     if (trim_tracks) trim_tracks.style.display = "none";
     if (display_mode) display_mode.style.display = "none";
-  } else if (segments.length > 1) {
+  } else if (alignment.hasMultipleSegments) {
     console.log("More than one segment");
     if (trim_tracks) trim_tracks.style.display = "flex";
-    // Show new display mode selector if alignment found multiple segments
-    if (display_mode && alignment && alignment.hasMultipleSegments) {
+    if (display_mode) {
       display_mode.style.display = "flex";
       const summary = document.querySelector("#alignment-summary");
       if (summary) {
         summary.textContent = getAlignmentSummary(alignment);
       }
-    } else if (display_mode) {
-      display_mode.style.display = "none";
     }
   } else {
     console.log("All segments match");

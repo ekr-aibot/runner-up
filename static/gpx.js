@@ -279,6 +279,10 @@ function normalizeTracks(tracks) {
 }
 
 function findMatchingSegments(track1, track2, threshold = 0.03) {
+  if (!track1.length || !track2.length) {
+    return null;
+  }
+
   let segments = [];
   // Use the track length ratio to compute an expected t2 position for each
   // t1 index. This prevents cumulative drift when GPS units have different
@@ -286,6 +290,12 @@ function findMatchingSegments(track1, track2, threshold = 0.03) {
   // falls behind when the ratio != 1; the ratio-based expected position
   // stays accurate regardless of sampling differences.
   const ratio = track2.length / track1.length;
+
+  // Search window constants:
+  // - FIXED_LOOKAHEAD: minimum points to search ahead from current position
+  // - RATIO_BUFFER: additional buffer around the ratio-based expected position
+  const FIXED_LOOKAHEAD = 30;
+  const RATIO_BUFFER = 15;
   let t1Index = 0;
   let t2Index = 0;
 
@@ -311,7 +321,7 @@ function findMatchingSegments(track1, track2, threshold = 0.03) {
       const expectedT2 = Math.round(t1Index * ratio);
       const searchEnd = Math.min(
         track2.length,
-        Math.max(t2Index + 30, expectedT2 + 15),
+        Math.max(t2Index + FIXED_LOOKAHEAD, expectedT2 + RATIO_BUFFER),
       );
       for (let i = t2Index; i < searchEnd; i++) {
         const d = getDistanceFromPointInKm(track1[t1Index], track2[i]);

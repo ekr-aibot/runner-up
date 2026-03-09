@@ -22,6 +22,16 @@ export async function clearLocalStorageNow(page: Page): Promise<void> {
 }
 
 /**
+ * Seed localStorage with tracks after page has loaded.
+ * Call this after page.goto(), then reload for the app to pick up the data.
+ */
+export async function seedLocalStorageNow(page: Page, tracks: StoredTrack[]): Promise<void> {
+  await page.evaluate((tracksJson) => {
+    localStorage.setItem('gpxUploads', tracksJson);
+  }, JSON.stringify(tracks));
+}
+
+/**
  * Get the stored tracks from localStorage.
  */
 export async function getStoredTracks(page: Page): Promise<StoredTrack[]> {

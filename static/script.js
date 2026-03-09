@@ -14,10 +14,17 @@ let tracks = [];
 // The individual matching segments for each track.
 let segments = null;
 
+// The alignment result from findOverlappingRegions (new).
+// Using var so it's accessible via window.alignment for testing.
+var alignment = null;
+
 // Whether we have a single course where all the tracks line
 // up, either because it was created that way or because
 // we merged the matching segments.
 let all_match = null;
+
+// Display mode: 'full' shows entire tracks, 'overlapping' shows only overlapping regions.
+let displayMode = 'full';
 
 // The map object.
 let lmap = undefined;
@@ -32,21 +39,43 @@ function dataUpdated() {
   }
   // TODO(ekr@rtfm.com): Handle >2 tracks.
   if (data.length > 1) {
-    segments = findMatchingSegments(data[0], data[1], 0.03, 20);
+    // Use DTW alignment (handles different sampling rates correctly)
+    alignment = findOverlappingRegions(data[0], data[1], {
+      threshold: 0.03,
+      minSegmentPoints: 3
+    });
+    // Derive segments from alignment for backward compatibility
+    if (alignment && alignment.overlappingRegions) {
+      segments = alignment.overlappingRegions.map(r => [r.track1Range[0], r.track1Range[1]]);
+    } else {
+      segments = null;
+    }
   } else {
     segments = [[0, data[0].length - 1]];
+    alignment = null;
   }
 
   const trim_tracks = document.querySelector("#trim-tracks");
-  if (!segments) {
+  const display_mode = document.querySelector("#display-mode");
+
+  if (!alignment || !alignment.overlappingRegions) {
     console.log("No matching segments");
-    trim_tracks.style.display = "none";
-  } else if (segments.length > 1) {
+    if (trim_tracks) trim_tracks.style.display = "none";
+    if (display_mode) display_mode.style.display = "none";
+  } else if (alignment.hasMultipleSegments) {
     console.log("More than one segment");
-    trim_tracks.style.display = "flex";
+    if (trim_tracks) trim_tracks.style.display = "flex";
+    if (display_mode) {
+      display_mode.style.display = "flex";
+      const summary = document.querySelector("#alignment-summary");
+      if (summary) {
+        summary.textContent = getAlignmentSummary(alignment);
+      }
+    }
   } else {
     console.log("All segments match");
-    trim_tracks.style.display = "none";
+    if (trim_tracks) trim_tracks.style.display = "none";
+    if (display_mode) display_mode.style.display = "none";
   }
 
   displayTracks();
@@ -64,9 +93,14 @@ function displayTracks() {
     all_match = false;
   } else if (segments.length > 1) {
     const trim_tracks = document.querySelector("#trim-tracks-checkbox");
-    if (trim_tracks.checked) {
+    if (trim_tracks && trim_tracks.checked) {
       tracks = consolidateSegments(tracks, segments);
       normalizeTracks(tracks);
+      all_match = true;
+    } else if (displayMode === 'overlapping' && alignment && tracks.length === 2) {
+      // Use new alignment-based harmonization for overlapping regions only
+      const harmonized = createHarmonizedTracks(tracks[0], tracks[1], alignment, true);
+      tracks = [harmonized.harmonizedTrack1, harmonized.harmonizedTrack2];
       all_match = true;
     } else {
       all_match = false;
@@ -328,7 +362,16 @@ document.addEventListener("DOMContentLoaded", () => {
   addSavedTrackListener();
   populateSavedTracks();
   addGraphTypeListener();
-  document
-    .querySelector("#trim-tracks-checkbox")
-    .addEventListener("change", displayTracks);
+  addDisplayModeListener();
 });
+
+// Add listener for display mode toggle.
+function addDisplayModeListener() {
+  const modeSelect = document.querySelector("#display-mode-select");
+  if (modeSelect) {
+    modeSelect.addEventListener("change", (e) => {
+      displayMode = e.target.value;
+      displayTracks();
+    });
+  }
+}

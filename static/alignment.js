@@ -38,129 +38,11 @@
  * @param {number} options.minSegmentPoints - Minimum points to consider a valid segment (default 3)
  * @returns {AlignmentResult|null} Alignment result or null if tracks don't overlap at start
  */
+/**
+ * Find all overlapping regions between two tracks using DTW alignment.
+ */
 function findOverlappingRegions(track1, track2, options = {}) {
-  const {
-    threshold = 0.03,  // 30 meters
-    searchWindow = 30,
-    minSegmentPoints = 3
-  } = options;
-
-  if (!track1?.length || !track2?.length) {
-    return null;
-  }
-
-  const regions = [];
-  let t1Index = 0;
-  let t2Index = 0;
-  let currentRegion = null;
-  let matching = false;
-
-  // Check if tracks start in the same place
-  const initialDistance = getDistanceFromPointInKm(track1[0], track2[0]);
-  if (initialDistance > threshold) {
-    // Tracks don't start at the same point - try to find where they first intersect
-    const intersection = findFirstIntersection(track1, track2, threshold, searchWindow);
-    if (!intersection) {
-      return null;
-    }
-    t1Index = intersection.t1Index;
-    t2Index = intersection.t2Index;
-  }
-
-  // Start first matching region
-  currentRegion = {
-    track1Start: t1Index,
-    track2Start: t2Index
-  };
-  matching = true;
-
-  while (t1Index < track1.length) {
-    if (matching) {
-      // We're in a matching segment - find closest point on track2
-      const result = findClosestPointInWindow(
-        track1[t1Index],
-        track2,
-        t2Index,
-        searchWindow,
-        threshold
-      );
-
-      if (result.found) {
-        t2Index = result.index;
-        t1Index++;
-      } else {
-        // Tracks diverged - close current region if it has enough points
-        const regionLength = t1Index - currentRegion.track1Start;
-        if (regionLength >= minSegmentPoints) {
-          regions.push(createRegion(
-            track1, track2,
-            currentRegion.track1Start, t1Index - 1,
-            currentRegion.track2Start, t2Index
-          ));
-        }
-
-        matching = false;
-        t1Index++;
-      }
-    } else {
-      // Not matching - search for reconvergence
-      const reconvergence = findReconvergence(
-        track1, track2,
-        t1Index, t2Index,
-        threshold
-      );
-
-      if (reconvergence) {
-        t1Index = reconvergence.t1Index;
-        t2Index = reconvergence.t2Index;
-        currentRegion = {
-          track1Start: t1Index,
-          track2Start: t2Index
-        };
-        matching = true;
-      } else {
-        // No reconvergence found, move to next point
-        t1Index++;
-      }
-    }
-  }
-
-  // Close final region if we ended while matching
-  if (matching && currentRegion) {
-    const regionLength = track1.length - 1 - currentRegion.track1Start;
-    if (regionLength >= minSegmentPoints) {
-      // Find the corresponding end in track2
-      let t2End = t2Index;
-      // Extend t2End to include any remaining close points
-      while (t2End < track2.length - 1) {
-        const d = getDistanceFromPointInKm(track1[track1.length - 1], track2[t2End + 1]);
-        if (d <= threshold) {
-          t2End++;
-        } else {
-          break;
-        }
-      }
-
-      regions.push(createRegion(
-        track1, track2,
-        currentRegion.track1Start, track1.length - 1,
-        currentRegion.track2Start, t2End
-      ));
-    }
-  }
-
-  if (regions.length === 0) {
-    return null;
-  }
-
-  // Calculate total harmonized distance
-  const totalHarmonized = regions.reduce((sum, r) => sum + r.harmonizedDistance, 0);
-
-  return {
-    overlappingRegions: regions,
-    hasMultipleSegments: regions.length > 1,
-    totalHarmonizedDistance: totalHarmonized
-  };
+  return findOverlappingRegionsWithDTW(track1, track2, options);
 }
 
 /**
@@ -181,26 +63,177 @@ function findFirstIntersection(track1, track2, threshold, maxSearch) {
 }
 
 /**
- * Find the closest point in track within a window of the current index.
+ * Dynamic Time Warping (DTW) alignment for two GPS tracks.
+ * Uses Sakoe-Chiba band constraint for efficiency with large tracks.
+ *
+ * @param {Object[]} track1 - First track
+ * @param {Object[]} track2 - Second track
+ * @param {number} bandWidth - Maximum allowed warping (as fraction of track length)
+ * @returns {Array} Array of [i, j] pairs representing the alignment path
  */
-function findClosestPointInWindow(point, track, startIndex, windowSize, threshold) {
-  let bestIndex = startIndex;
-  let bestDistance = Infinity;
+function dtwAlign(track1, track2, bandWidth = 0.1) {
+  const n = track1.length;
+  const m = track2.length;
 
-  const endIndex = Math.min(track.length, startIndex + windowSize);
+  // Band width in indices (at least 50 points, at most 10% of longer track)
+  const band = Math.max(50, Math.floor(Math.max(n, m) * bandWidth));
 
-  for (let i = startIndex; i < endIndex; i++) {
-    const d = getDistanceFromPointInKm(point, track[i]);
-    if (d < bestDistance) {
-      bestDistance = d;
-      bestIndex = i;
+  // Cost matrix - only store current and previous row for memory efficiency
+  let prev = new Array(m).fill(Infinity);
+  let curr = new Array(m).fill(Infinity);
+
+  // Parent pointers for backtracking (stored sparsely)
+  const parents = new Map();
+
+  for (let i = 0; i < n; i++) {
+    // Sakoe-Chiba band: j should be within band of the diagonal
+    const expectedJ = Math.floor(i * m / n);
+    const jMin = Math.max(0, expectedJ - band);
+    const jMax = Math.min(m, expectedJ + band);
+
+    for (let j = jMin; j < jMax; j++) {
+      const cost = getDistanceFromPointInKm(track1[i], track2[j]);
+
+      let minPrev = Infinity;
+      let parent = null;
+
+      if (i === 0 && j === 0) {
+        minPrev = 0;
+      } else {
+        // Check three possible predecessors
+        if (i > 0 && prev[j] < minPrev) {
+          minPrev = prev[j];
+          parent = [i - 1, j];
+        }
+        if (j > 0 && curr[j - 1] < minPrev) {
+          minPrev = curr[j - 1];
+          parent = [i, j - 1];
+        }
+        if (i > 0 && j > 0 && prev[j - 1] < minPrev) {
+          minPrev = prev[j - 1];
+          parent = [i - 1, j - 1];
+        }
+      }
+
+      curr[j] = cost + minPrev;
+      if (parent) {
+        parents.set(i * m + j, parent);
+      }
+    }
+
+    // Swap rows
+    [prev, curr] = [curr, prev];
+    curr.fill(Infinity);
+  }
+
+  // Backtrack to find alignment path
+  const path = [];
+  let i = n - 1;
+  let j = m - 1;
+
+  // Find best endpoint in last row (in case tracks end differently)
+  let bestJ = j;
+  let bestCost = prev[j];
+  const expectedEndJ = Math.floor((n - 1) * m / n);
+  const jMinEnd = Math.max(0, expectedEndJ - band);
+  const jMaxEnd = Math.min(m, expectedEndJ + band);
+  for (let jj = jMinEnd; jj < jMaxEnd; jj++) {
+    if (prev[jj] < bestCost) {
+      bestCost = prev[jj];
+      bestJ = jj;
+    }
+  }
+  j = bestJ;
+
+  while (i >= 0 && j >= 0) {
+    path.unshift([i, j]);
+    const parent = parents.get(i * m + j);
+    if (!parent) break;
+    [i, j] = parent;
+  }
+
+  return path;
+}
+
+/**
+ * Find overlapping regions using DTW alignment.
+ * Regions where tracks are close together are "overlapping".
+ */
+function findOverlappingRegionsWithDTW(track1, track2, options = {}) {
+  const {
+    threshold = 0.03,  // 30 meters - points closer than this are "matching"
+    minSegmentPoints = 3
+  } = options;
+
+  if (!track1?.length || !track2?.length) {
+    return null;
+  }
+
+  // Get DTW alignment
+  const alignment = dtwAlign(track1, track2);
+
+  if (alignment.length === 0) {
+    return null;
+  }
+
+  // Walk through alignment and find regions where points are close
+  const regions = [];
+  let currentRegion = null;
+  let matching = false;
+  let prevI = 0, prevJ = 0;
+
+  for (const [i, j] of alignment) {
+    const dist = getDistanceFromPointInKm(track1[i], track2[j]);
+    const isClose = dist <= threshold;
+
+    if (isClose && !matching) {
+      // Start new matching region
+      currentRegion = { track1Start: i, track2Start: j };
+      matching = true;
+    } else if (!isClose && matching) {
+      // End current region using previous point
+      if (currentRegion) {
+        const regionLength = prevI - currentRegion.track1Start;
+        if (regionLength >= minSegmentPoints) {
+          regions.push(createRegion(
+            track1, track2,
+            currentRegion.track1Start, prevI,
+            currentRegion.track2Start, prevJ
+          ));
+        }
+      }
+      matching = false;
+      currentRegion = null;
+    }
+
+    prevI = i;
+    prevJ = j;
+  }
+
+  // Close final region if still matching
+  if (matching && currentRegion) {
+    const lastPair = alignment[alignment.length - 1];
+    const regionLength = lastPair[0] - currentRegion.track1Start;
+    if (regionLength >= minSegmentPoints) {
+      regions.push(createRegion(
+        track1, track2,
+        currentRegion.track1Start, lastPair[0],
+        currentRegion.track2Start, lastPair[1]
+      ));
     }
   }
 
+  if (regions.length === 0) {
+    return null;
+  }
+
+  const totalHarmonized = regions.reduce((sum, r) => sum + r.harmonizedDistance, 0);
+
   return {
-    found: bestDistance <= threshold,
-    index: bestIndex,
-    distance: bestDistance
+    overlappingRegions: regions,
+    hasMultipleSegments: regions.length > 1,
+    totalHarmonizedDistance: totalHarmonized,
+    alignment: alignment  // Include raw alignment for debugging
   };
 }
 

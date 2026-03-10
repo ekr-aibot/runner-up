@@ -135,13 +135,24 @@ test.describe('displayTime in non-overlapping segments', () => {
     await fileInput.setInputFiles(path.join(fixturesDir, 'main-route-with-loop.gpx'));
     await expect(page.locator(selectors.legendEntry)).toHaveCount(2, { timeout: 10000 });
 
-    await page.waitForTimeout(500);
+    // Wait for alignment and verify display mode is available
+    await expect(page.locator('#display-mode')).toBeVisible({ timeout: 5000 });
 
     // Select 'Overlapping' display mode
     await page.selectOption('#display-mode-select', 'overlapping');
     await page.waitForTimeout(300);
 
-    // Set compare-by to 'time' to show time difference graph
+    // Verify all_match is true (required for difference graph)
+    // Check this FIRST so we get a clear error if the test setup is wrong
+    const allMatch = await page.evaluate(() => {
+      return (window as any).all_match;
+    });
+    expect(allMatch).toBe(true);
+
+    // Change compare-by to trigger graph redraw (default is already 'time',
+    // so we switch away and back to ensure change event fires)
+    await page.selectOption('#compare-by-menu', 'distance');
+    await page.waitForTimeout(100);
     await page.selectOption('#compare-by-menu', 'time');
     await page.waitForTimeout(300);
 
@@ -149,12 +160,6 @@ test.describe('displayTime in non-overlapping segments', () => {
     // Observable Plot creates SVG elements directly, not <figure> elements
     const graphs = page.locator('#graph svg');
     await expect(graphs).toHaveCount(2, { timeout: 5000 });
-
-    // Verify all_match is true (required for difference graph)
-    const allMatch = await page.evaluate(() => {
-      return (window as any).all_match;
-    });
-    expect(allMatch).toBe(true);
   });
 
   test('markers move correctly along harmonized tracks', async ({ page }) => {

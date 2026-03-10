@@ -106,9 +106,10 @@ test.describe('displayTime in non-overlapping segments', () => {
     const graphContainer = page.locator(selectors.graphContainer);
     await expect(graphContainer).toBeVisible();
 
-    // Check that graph figures are present (elevation graph at minimum)
-    const figures = page.locator('#graph figure');
-    await expect(figures).toHaveCount(1, { timeout: 5000 });
+    // Check that graph SVGs are present (elevation graph at minimum)
+    // Observable Plot creates SVG elements directly, not <figure> elements
+    const graphs = page.locator('#graph svg');
+    await expect(graphs).toHaveCount(1, { timeout: 5000 });
 
     // Verify displayDistance is set on track points
     const hasDisplayDistance = await page.evaluate(() => {
@@ -145,8 +146,9 @@ test.describe('displayTime in non-overlapping segments', () => {
     await page.waitForTimeout(300);
 
     // Two graphs should now be visible: elevation and time difference
-    const figures = page.locator('#graph figure');
-    await expect(figures).toHaveCount(2, { timeout: 5000 });
+    // Observable Plot creates SVG elements directly, not <figure> elements
+    const graphs = page.locator('#graph svg');
+    await expect(graphs).toHaveCount(2, { timeout: 5000 });
 
     // Verify all_match is true (required for difference graph)
     const allMatch = await page.evaluate(() => {

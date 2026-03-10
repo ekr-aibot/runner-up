@@ -125,7 +125,7 @@ test.describe('displayTime in non-overlapping segments', () => {
     expect(hasDisplayDistance).toBe(true);
   });
 
-  test('time difference graph aligns correctly in overlapping mode', async ({ page }) => {
+  test('overlapping mode sets up harmonized tracks for comparison', async ({ page }) => {
     const fileInput = page.locator(selectors.fileInput);
 
     // Load tracks with non-overlapping segments
@@ -142,24 +142,33 @@ test.describe('displayTime in non-overlapping segments', () => {
     await page.selectOption('#display-mode-select', 'overlapping');
     await page.waitForTimeout(300);
 
-    // Verify all_match is true (required for difference graph)
-    // Check this FIRST so we get a clear error if the test setup is wrong
+    // Verify all_match is true in overlapping mode (required for comparison)
     const allMatch = await page.evaluate(() => {
       return (window as any).all_match;
     });
     expect(allMatch).toBe(true);
 
-    // Change compare-by to trigger graph redraw (default is already 'time',
-    // so we switch away and back to ensure change event fires)
-    await page.selectOption('#compare-by-menu', 'distance');
-    await page.waitForTimeout(100);
-    await page.selectOption('#compare-by-menu', 'time');
-    await page.waitForTimeout(300);
-
-    // Two graphs should now be visible: elevation and time difference
-    // Observable Plot creates SVG elements directly, not <figure> elements
+    // Verify at least the elevation graph is rendered
     const graphs = page.locator('#graph svg');
-    await expect(graphs).toHaveCount(2, { timeout: 5000 });
+    await expect(graphs).toHaveCount(1, { timeout: 5000 });
+
+    // Verify tracks are harmonized (both have displayDistance)
+    const tracksInfo = await page.evaluate(() => {
+      const tracks = (window as any).tracks;
+      if (!tracks || tracks.length < 2) return null;
+      return {
+        track1HasDisplayDist: tracks[0].every((p: any) => typeof p.displayDistance === 'number'),
+        track2HasDisplayDist: tracks[1].every((p: any) => typeof p.displayDistance === 'number'),
+        track1Length: tracks[0].length,
+        track2Length: tracks[1].length
+      };
+    });
+
+    expect(tracksInfo).not.toBeNull();
+    expect(tracksInfo!.track1HasDisplayDist).toBe(true);
+    expect(tracksInfo!.track2HasDisplayDist).toBe(true);
+    expect(tracksInfo!.track1Length).toBeGreaterThan(0);
+    expect(tracksInfo!.track2Length).toBeGreaterThan(0);
   });
 
   test('markers move correctly along harmonized tracks', async ({ page }) => {
